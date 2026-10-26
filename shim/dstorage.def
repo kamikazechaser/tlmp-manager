@@ -1,0 +1,6 @@
+LIBRARY dstorage.dll
+EXPORTS
+    DStorageCreateCompressionCodec = dstorage_og.DStorageCreateCompressionCodec
+    DStorageGetFactory = dstorage_og.DStorageGetFactory
+    DStorageSetConfiguration = dstorage_og.DStorageSetConfiguration
+    DStorageSetConfiguration1 = dstorage_og.DStorageSetConfiguration1

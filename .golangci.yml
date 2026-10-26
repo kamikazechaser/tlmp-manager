@@ -1,0 +1,51 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - grouper
+    - decorder
+    - govet
+    - errcheck
+    - ineffassign
+    - wastedassign
+    - unused
+    - staticcheck
+    - errorlint
+    - errname
+    - forcetypeassert
+    - copyloopvar
+    - fatcontext
+    - predeclared
+    - sloglint
+    - forbidigo
+    - embeddedstructfieldcheck
+    - dupl
+    - iface
+    - modernize
+    - gocritic
+    - godoclint
+  settings:
+    grouper:
+      const-require-single-const: true
+      const-require-grouping: true
+      import-require-single-import: true
+      import-require-grouping: true
+      type-require-single-type: true
+      type-require-grouping: true
+      var-require-single-var: true
+      var-require-grouping: true
+    decorder:
+      dec-order:
+        - type
+        - const
+        - var
+        - func
+    errcheck:
+      check-type-assertions: true
+    forbidigo:
+      forbid:
+        - pattern: ^(fmt\.(Print|Fprint).*|print|println)$
+          msg: use log/slog
+    godoclint:
+      default: basic

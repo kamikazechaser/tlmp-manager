@@ -1,0 +1,6 @@
+tlmp-manager
+!cmd/**
+build
+internal/shim/dstorage.dll
+**/*.md
+!README.md
