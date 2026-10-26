@@ -3,11 +3,9 @@
 [![Tag](https://img.shields.io/github/v/tag/kamikazechaser/tlmp-manager?sort=semver)](https://github.com/kamikazechaser/tlmp-manager/tags)
 [![License](https://img.shields.io/github/license/kamikazechaser/tlmp-manager)](LICENSE)
 
-tlmp-manager is a simple CLI-based Linux launcher for [TrucklineMP](https://trucklinemp.com/).
+tlmp-manager is an unofficial CLI-based Linux launcher for [TrucklineMP](https://trucklinemp.com/).
 
-Set it up once, then just press Play in Steam. Updates and authentication are handled automatically, with no background services or extra windows to keep open.
-
-> ⚠️ tlmp-manager is in early development. It may not work on all systems.
+Set it up once, then just press Play in Steam. Updates and authentication are handled automatically, with no background processes or extra windows to keep open.
 
 ## Requirements
 
@@ -15,6 +13,12 @@ Set it up once, then just press Play in Steam. Updates and authentication are ha
 - Proton Experimental
 
 To set Proton Experimental: `Steam > ETS2 > Properties > Compatibility > Force the use of a specific Steam Play compatibility tool`
+
+### Flatpak and Snap Steam
+
+> ⚠️ tlmp-manager is in early development. It may not work on all systems.
+
+tlmp-manager does **not** support Steam from Flatpak or Snap yet. These packages run games in a sandbox, and tlmp-manager does not work inside it.
 
 ## Install
 
