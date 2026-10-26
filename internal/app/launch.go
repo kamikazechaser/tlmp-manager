@@ -23,7 +23,7 @@ const (
 
 // Launch returns the game environment; without a token the shim keeps the game vanilla.
 func (a *App) Launch(ctx context.Context, argv []string) ([]string, error) {
-	token, why := a.prepare(ctx, argv)
+	token, why, warn := a.prepare(ctx, argv)
 	if ctx.Err() != nil {
 		a.desktop.Dismiss()
 		return nil, errors.New("stopped before the game started")
@@ -34,21 +34,27 @@ func (a *App) Launch(ctx context.Context, argv []string) ([]string, error) {
 		a.desktop.Notify("TrucklineMP is off", why)
 	} else {
 		slog.Info("Starting ETS2 with TrucklineMP")
-		a.desktop.Dismiss()
+		// The desktop keeps one notification, so the warning replaces the progress.
+		if warn != "" {
+			a.desktop.Notify("Outdated optional mods", warn)
+		} else {
+			a.desktop.Dismiss()
+		}
 	}
 	return gameEnv(os.Environ(), token), nil
 }
 
-func (a *App) prepare(ctx context.Context, argv []string) (token, why string) {
+// prepare returns why TrucklineMP is off, or a warning when it is on.
+func (a *App) prepare(ctx context.Context, argv []string) (token, why, warn string) {
 	p, ok := steam.FromCommand(argv, os.Getenv)
 	if !ok {
-		return "", "TrucklineMP needs Proton. Set a Proton version in Steam: ETS2 > Properties > Compatibility."
+		return "", "TrucklineMP needs Proton. Set a Proton version in Steam: ETS2 > Properties > Compatibility.", ""
 	}
 	slog.Info("Paths from Steam", "game_dir", p.GameDir, "prefix_dir", p.PrefixDir)
 
 	// Writing into a prefix that Proton has not created can break its setup.
 	if !steam.PrefixReady(p.PrefixDir) {
-		return "", "Proton sets up ETS2 on the first start. Start ETS2 again to play TrucklineMP."
+		return "", "Proton sets up ETS2 on the first start. Start ETS2 again to play TrucklineMP.", ""
 	}
 
 	a.syncConfig(p)
@@ -62,7 +68,7 @@ func (a *App) prepare(ctx context.Context, argv []string) (token, why string) {
 	}
 	if err != nil {
 		slog.Error("Login failed", "err", err)
-		return "", "Login failed: " + err.Error()
+		return "", "Login failed: " + err.Error(), ""
 	}
 
 	sum, err := a.inst.Run(ctx, p, a.showProgress)
@@ -70,15 +76,17 @@ func (a *App) prepare(ctx context.Context, argv []string) (token, why string) {
 	case err == nil:
 		logUpdate(sum)
 	case ctx.Err() != nil:
-		return "", ""
+		return "", "", ""
 	case a.inst.Installed(p):
 		slog.Warn("Update failed. Starting with the installed version", "err", err)
 	default:
 		slog.Error("Download failed", "err", err)
-		return "", "Download failed: " + err.Error()
+		return "", "Download failed: " + err.Error(), ""
 	}
 
-	// The token is short-lived, so get it after the update.
+	warn = a.syncMods(ctx, p)
+
+	// The token is short-lived, so get it after the updates.
 	token, err = a.api.Play(ctx, sessionID)
 	if errors.Is(err, auth.ErrUnauthorized) {
 		slog.Info("Session rejected. Logging in again")
@@ -91,12 +99,12 @@ func (a *App) prepare(ctx context.Context, argv []string) (token, why string) {
 	}
 	if err != nil {
 		slog.Error("Session token request failed", "err", err)
-		return "", "Session token request failed: " + err.Error()
+		return "", "Session token request failed: " + err.Error(), ""
 	}
 	if len(token) > maxTokenLen {
-		return "", fmt.Sprintf("The session token has %d characters. The limit is %d.", len(token), maxTokenLen)
+		return "", fmt.Sprintf("The session token has %d characters. The limit is %d.", len(token), maxTokenLen), ""
 	}
-	return token, ""
+	return token, "", warn
 }
 
 func (a *App) launchLogin(ctx context.Context) (string, error) {

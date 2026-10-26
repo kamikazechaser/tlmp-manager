@@ -22,6 +22,8 @@ import (
 	"github.com/kamikazechaser/tlmp-manager/internal/auth"
 	"github.com/kamikazechaser/tlmp-manager/internal/config"
 	"github.com/kamikazechaser/tlmp-manager/internal/installer"
+	"github.com/kamikazechaser/tlmp-manager/internal/mods"
+	"github.com/kamikazechaser/tlmp-manager/internal/state"
 	"github.com/zalando/go-keyring"
 )
 
@@ -33,23 +35,31 @@ type (
 		valid   string
 		cdnDown bool
 		apiDown bool
+		// mods is the optional mod allowlist, by file name and content.
+		mods     map[string]string
+		modsDown bool
+		onPlay   func()
 	}
 
 	fakeDesktop struct {
 		notes  []string
 		opened []string
 		closed bool
+		// onOpen stands in for Steam, which downloads a Workshop item after the player subscribes.
+		onOpen func(url string)
 	}
 
 	fixture struct {
-		app     *App
-		srv     *fakeServer
-		desktop *fakeDesktop
-		logs    *bytes.Buffer
-		root    string
-		gameDir string
-		compat  string
-		argv    []string
+		app      *App
+		srv      *fakeServer
+		desktop  *fakeDesktop
+		logs     *bytes.Buffer
+		root     string
+		gameDir  string
+		compat   string
+		workshop string
+		modDir   string
+		argv     []string
 	}
 )
 
@@ -83,6 +93,17 @@ func (s *fakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			m[name] = hex.EncodeToString(sum[:])
 		}
 		reply(http.StatusOK, m)
+	case r.URL.Path == "/api/public/mods":
+		if s.modsDown {
+			reply(http.StatusServiceUnavailable, nil)
+			return
+		}
+		list := []map[string]string{}
+		for name, content := range s.mods {
+			sum := md5.Sum([]byte(content))
+			list = append(list, map[string]string{"name": name, "md5": hex.EncodeToString(sum[:])})
+		}
+		reply(http.StatusOK, map[string]any{"mods": list})
 	case strings.HasPrefix(r.URL.Path, "/files/"):
 		_, _ = w.Write([]byte(s.files[strings.TrimPrefix(r.URL.Path, "/files/")]))
 	case s.apiDown:
@@ -97,6 +118,9 @@ func (s *fakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Path == "/launcher/verify":
 		reply(http.StatusOK, auth.User{Status: "valid", Username: "driver"})
 	case r.URL.Path == "/launcher/play":
+		if s.onPlay != nil {
+			s.onPlay()
+		}
 		reply(http.StatusOK, map[string]string{"sessionToken": gameToken})
 	default:
 		reply(http.StatusNotFound, nil)
@@ -116,6 +140,9 @@ func (d *fakeDesktop) Close()                       { d.closed = true }
 
 func (d *fakeDesktop) OpenURL(url string) error {
 	d.opened = append(d.opened, url)
+	if d.onOpen != nil {
+		d.onOpen(url)
+	}
 	return nil
 }
 
@@ -150,6 +177,8 @@ func newFixture(t *testing.T) *fixture {
 	lib := filepath.Join(home, "drive2", "SteamLibrary")
 	f.gameDir = filepath.Join(lib, "steamapps", "common", "Euro Truck Simulator 2", "bin", "win_x64")
 	f.compat = filepath.Join(lib, "steamapps", "compatdata", "227300")
+	f.workshop = filepath.Join(lib, "steamapps", "workshop", "content", "227300")
+	f.modDir = filepath.Join(f.compat, "pfx", "drive_c", "users", "steamuser", "Documents", "TrucklineMP", "mod")
 	f.argv = []string{"/bin/true", filepath.Join(f.gameDir, "eurotrucks2.exe")}
 
 	write(t, filepath.Join(f.gameDir, "dstorage.dll"), vanilla)
@@ -171,7 +200,12 @@ func newFixture(t *testing.T) *fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
+	hashes, err := state.LoadHashes()
+	if err != nil {
+		t.Fatal(err)
+	}
 	f.app = New(Opts{
+		Mods:       mods.New(mods.Opts{AllowlistURL: config.ModsURL(srv.URL), DetailsURL: srv.URL + "/steam", Hashes: hashes}),
 		API:        auth.NewClient(auth.ClientOpts{BaseURL: srv.URL, PollInterval: time.Millisecond}),
 		Sessions:   auth.NewSessions(auth.SessionsOpts{Dir: filepath.Join(home, ".local", "state", "tlmp-manager")}),
 		Installer:  inst,
@@ -268,6 +302,14 @@ func TestLaunch(t *testing.T) {
 					t.Fatal(err)
 				}
 				f.srv.set(func(s *fakeServer) { s.cdnDown = true })
+			},
+			wantToken: true,
+		},
+		{
+			name: "optional mod list down",
+			prepare: func(t *testing.T, f *fixture) {
+				f.login(t)
+				f.srv.set(func(s *fakeServer) { s.modsDown = true })
 			},
 			wantToken: true,
 		},

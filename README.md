@@ -50,6 +50,18 @@ make test
 
 To play TrucklineMP again, set Proton Experimental and the tlmp-manager launch options. The next start turns TrucklineMP on.
 
+### Optional mods
+
+TrucklineMP allows a fixed list of optional mods.
+
+- `tlmp-manager mods` lists your enabled mods and the mods that are ready to enable, with the next step. `tlmp-manager mods list-all` lists every mod on the TrucklineMP list.
+- `tlmp-manager mods enable <id>` enables a Steam Workshop mod. If you are not subscribed, Steam opens the Workshop page. Subscribe there, and tlmp-manager copies the mod when Steam has downloaded it.
+- Own mods, for example ProMods, are not on the Workshop. Download the listed version, then run `tlmp-manager mods add <file>`.
+- `tlmp-manager mods disable <id>` turns a mod off. It deletes the copy of a Workshop mod, because Steam keeps the original. It keeps an own mod as `<name>.disabled`.
+- `tlmp-manager mods remove <id>` deletes a mod. `uninstall` keeps the mod files, so use `tlmp-manager mods remove --all` to delete them.
+
+Each start through Steam updates the enabled Workshop mods.
+
 Other commands: `status`, `disable`, `logout` and `uninstall`. See `tlmp-manager --help`. Logs are in `~/.local/state/tlmp-manager/logs`.
 
 ## Acknowledgements

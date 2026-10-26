@@ -18,9 +18,10 @@ import (
 )
 
 var (
-	apiBase = "http://localhost"
-	cdnBase = "http://localhost"
-	version = "dev"
+	apiBase  = "http://localhost"
+	cdnBase  = "http://localhost"
+	gameBase = "http://localhost"
+	version  = "dev"
 )
 
 func init() {
@@ -66,6 +67,50 @@ func main() {
 			{Name: "disable", Usage: "Turn TrucklineMP off", Action: withApp((*app.App).Disable)},
 			{Name: "logout", Usage: "Delete the saved login", Action: withApp((*app.App).Logout)},
 			{Name: "uninstall", Usage: "Remove TrucklineMP, the saved login, and local settings", Action: withApp((*app.App).Uninstall)},
+			{
+				Name:  "mods",
+				Usage: "List, enable, and remove optional TrucklineMP mods",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if cmd.Args().Present() {
+						return fmt.Errorf("unknown command %q; see 'tlmp-manager mods --help'", cmd.Args().First())
+					}
+					return withApp((*app.App).ModsList)(ctx, cmd)
+				},
+				Commands: []*cli.Command{
+					{Name: "list", Usage: "Show enabled mods and mods that are ready to enable", Action: withApp((*app.App).ModsList)},
+					{Name: "list-all", Usage: "Show every mod on the TrucklineMP list and the next step", Action: withApp((*app.App).ModsListAll)},
+					{
+						Name:      "enable",
+						Usage:     "Copy mods from Steam into the mod folder; subscribe in Steam if necessary",
+						ArgsUsage: "<file or Workshop id...>",
+						Action:    withArgs((*app.App).ModsEnable),
+					},
+					{
+						Name:      "disable",
+						Usage:     "Turn mods off; keep own mods as <name>.disabled",
+						ArgsUsage: "<file or Workshop id...>",
+						Action:    withArgs((*app.App).ModsDisable),
+					},
+					{
+						Name:      "remove",
+						Usage:     "Delete mods and their disabled copies",
+						ArgsUsage: "<file or Workshop id...>",
+						Flags:     []cli.Flag{&cli.BoolFlag{Name: "all", Usage: "delete every mod file in the mod folder"}},
+						Action: func(ctx context.Context, cmd *cli.Command) error {
+							if cmd.Bool("all") {
+								return withApp((*app.App).ModsRemoveAll)(ctx, cmd)
+							}
+							return withArgs((*app.App).ModsRemove)(ctx, cmd)
+						},
+					},
+					{
+						Name:      "add",
+						Usage:     "Copy own mods, such as ProMods, that you downloaded",
+						ArgsUsage: "<file...>",
+						Action:    withArgs((*app.App).ModsAdd),
+					},
+				},
+			},
 			{Name: "login", Category: "advanced", Usage: "Log in with your browser", Action: withApp((*app.App).Login)},
 			{Name: "update", Category: "advanced", Usage: "Install TrucklineMP updates manually", Action: withApp((*app.App).Update)},
 			{
@@ -98,6 +143,17 @@ func withApp(run func(*app.App, context.Context) error) cli.ActionFunc {
 		}
 		defer a.Close()
 		return run(a, ctx)
+	}
+}
+
+func withArgs(run func(*app.App, context.Context, []string) error) cli.ActionFunc {
+	return func(ctx context.Context, cmd *cli.Command) error {
+		if !cmd.Args().Present() {
+			return errors.New("name at least one mod; see 'tlmp-manager mods list-all'")
+		}
+		return withApp(func(a *app.App, ctx context.Context) error {
+			return run(a, ctx, cmd.Args().Slice())
+		})(ctx, cmd)
 	}
 }
 
