@@ -1,7 +1,7 @@
+# tlmp-manager
+
 [![Tag](https://img.shields.io/github/v/tag/kamikazechaser/tlmp-manager?sort=semver)](https://github.com/kamikazechaser/tlmp-manager/tags)
 [![License](https://img.shields.io/github/license/kamikazechaser/tlmp-manager)](LICENSE)
-
-# tlmp-manager
 
 tlmp-manager is a simple CLI-based Linux launcher for [TrucklineMP](https://trucklinemp.com/).
 
@@ -24,6 +24,15 @@ curl -fsSL https://raw.githubusercontent.com/kamikazechaser/tlmp-manager/master/
 
 The script installs `tlmp-manager` in `~/.local/bin`, then runs `tlmp-manager setup`. Run the script again to upgrade.
 
+### Build
+
+Requirements: Latest Go and `x86_64-w64-mingw32-gcc`.
+
+```sh
+make build
+make test
+```
+
 ## Use
 
 1. Run `tlmp-manager`. It automatically finds ETS2, logs in to TrucklineMP, and installs TrucklineMP.
@@ -38,15 +47,6 @@ The script installs `tlmp-manager` in `~/.local/bin`, then runs `tlmp-manager se
 To play TrucklineMP again, set Proton Experimental and the tlmp-manager launch options. The next start turns TrucklineMP on.
 
 Other commands: `status`, `disable`, `logout` and `uninstall`. See `tlmp-manager --help`. Logs are in `~/.local/state/tlmp-manager/logs`.
-
-## Build
-
-Requirements: Latest Go and `x86_64-w64-mingw32-gcc`.
-
-```sh
-make build
-make test
-```
 
 ## Acknowledgements
 
