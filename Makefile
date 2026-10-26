@@ -3,6 +3,7 @@ BUILD_CONF := CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 VERSION    ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 CDN_BASE   := https://files.download.trucklinemp.com/client
 API_BASE   := https://api.trucklinemp.com
+GAME_BASE  := https://game.trucklinemp.com
 SHIM_CC    ?= x86_64-w64-mingw32-gcc
 SHIM_DLL   := internal/shim/dstorage.dll
 
@@ -21,7 +22,7 @@ ${SHIM_DLL}: shim/dstorage.c shim/dstorage.def
 build: ${SHIM_DLL}
 	@mkdir -p build
 	${BUILD_CONF} go build \
-		-ldflags="-X main.version=${VERSION} -X main.cdnBase=${CDN_BASE} -X main.apiBase=${API_BASE} -s -w" \
+		-ldflags="-X main.version=${VERSION} -X main.cdnBase=${CDN_BASE} -X main.apiBase=${API_BASE} -X main.gameBase=${GAME_BASE} -s -w" \
 		-o build/${BIN} \
 		./cmd/tlmp-manager
 

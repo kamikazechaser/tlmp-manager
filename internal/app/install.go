@@ -8,6 +8,8 @@ import (
 	"os"
 
 	"github.com/kamikazechaser/tlmp-manager/internal/config"
+	"github.com/kamikazechaser/tlmp-manager/internal/mods"
+	"github.com/kamikazechaser/tlmp-manager/internal/state"
 	"github.com/kamikazechaser/tlmp-manager/internal/steam"
 )
 
@@ -54,8 +56,15 @@ func (a *App) Uninstall(context.Context) error {
 	if err := os.RemoveAll(a.logDir); err != nil {
 		return fmt.Errorf("deleting the logs: %w", err)
 	}
+	if err := os.Remove(state.HashesPath()); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("deleting the mod hash cache: %w", err)
+	}
 
 	slog.Info("TrucklineMP removed")
+	// Own mods can be large downloads, so uninstall keeps the mod folder.
+	if entries, _ := os.ReadDir(mods.ModDir(p)); len(entries) > 0 {
+		slog.Info("Optional mods remain. Run tlmp-manager mods remove --all to delete them", "dir", mods.ModDir(p))
+	}
 	a.remindLaunchOptions(p.Root)
 	return nil
 }

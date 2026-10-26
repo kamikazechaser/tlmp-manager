@@ -4,6 +4,7 @@ package app
 import (
 	"github.com/kamikazechaser/tlmp-manager/internal/auth"
 	"github.com/kamikazechaser/tlmp-manager/internal/installer"
+	"github.com/kamikazechaser/tlmp-manager/internal/mods"
 )
 
 type (
@@ -19,6 +20,7 @@ type (
 		API       *auth.Client
 		Sessions  *auth.Sessions
 		Installer *installer.Installer
+		Mods      *mods.Mods
 		Desktop   Desktop
 		LogDir    string
 		// Executable is the path that the Steam launch options must run.
@@ -30,6 +32,7 @@ type (
 		api      *auth.Client
 		sessions *auth.Sessions
 		inst     *installer.Installer
+		mods     *mods.Mods
 		desktop  Desktop
 		logDir   string
 		exe      string
@@ -41,6 +44,7 @@ func New(o Opts) *App {
 		api:      o.API,
 		sessions: o.Sessions,
 		inst:     o.Installer,
+		mods:     o.Mods,
 		desktop:  o.Desktop,
 		logDir:   o.LogDir,
 		exe:      o.Executable,

@@ -14,6 +14,7 @@ import (
 const (
 	manifestSuffix = "/latest.json"
 	filesSuffix    = "/files/"
+	modsSuffix     = "/api/public/mods"
 )
 
 type (
@@ -33,6 +34,11 @@ func NewURLs(cdnBase string) URLs {
 		Manifest: cdnBase + manifestSuffix,
 		Files:    cdnBase + filesSuffix,
 	}
+}
+
+// ModsURL returns the optional mod allowlist on the game API, which the core also reads.
+func ModsURL(gameBase string) string {
+	return gameBase + modsSuffix
 }
 
 func Path() string {

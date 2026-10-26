@@ -12,6 +12,7 @@ import (
 	"github.com/kamikazechaser/tlmp-manager/internal/desktop"
 	"github.com/kamikazechaser/tlmp-manager/internal/installer"
 	"github.com/kamikazechaser/tlmp-manager/internal/logs"
+	"github.com/kamikazechaser/tlmp-manager/internal/mods"
 	"github.com/kamikazechaser/tlmp-manager/internal/state"
 )
 
@@ -25,10 +26,15 @@ func loadApp() (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
+	hashes, err := state.LoadHashes()
+	if err != nil {
+		return nil, err
+	}
 	return app.New(app.Opts{
 		API:        auth.NewClient(auth.ClientOpts{BaseURL: apiBase}),
 		Sessions:   auth.NewSessions(auth.SessionsOpts{Dir: state.Dir()}),
 		Installer:  inst,
+		Mods:       mods.New(mods.Opts{AllowlistURL: config.ModsURL(gameBase), Hashes: hashes}),
 		Desktop:    desktop.New(desktop.Opts{AppName: "TrucklineMP"}),
 		LogDir:     state.LogDir(),
 		Executable: executable(),

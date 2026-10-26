@@ -86,6 +86,7 @@ func (a *App) Status(ctx context.Context) error {
 	default:
 		slog.Info("TrucklineMP updates on the next start", "files", len(pending))
 	}
+	a.statusMods(ctx, p)
 
 	slog.Info("Logs", "dir", a.logDir)
 	return nil

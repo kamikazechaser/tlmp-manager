@@ -96,6 +96,11 @@ func FromCommand(argv []string, getenv func(string) string) (p Paths, ok bool) {
 	return Paths{}, false
 }
 
+// DocumentsDir returns the Windows Documents folder in the prefix. Proton always names the user steamuser.
+func DocumentsDir(prefixDir string) string {
+	return filepath.Join(prefixDir, "drive_c", "users", "steamuser", "Documents")
+}
+
 func PrefixReady(prefixDir string) bool {
 	_, regErr := os.Stat(filepath.Join(prefixDir, "system.reg"))
 	_, verErr := os.Stat(filepath.Join(filepath.Dir(prefixDir), "version"))
