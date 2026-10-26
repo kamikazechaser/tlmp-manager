@@ -56,7 +56,8 @@ func main() {
 			},
 			{
 				Name:            "launch",
-				Usage:           "Start ETS2 with TrucklineMP. Launch options: tlmp-manager launch %command%",
+				Usage:           "Start ETS2 with TrucklineMP",
+				Hidden:          true,
 				ArgsUsage:       "<game command...>",
 				SkipFlagParsing: true,
 				Action:          launch,
@@ -104,7 +105,7 @@ func withApp(run func(*app.App, context.Context) error) cli.ActionFunc {
 func launch(ctx context.Context, cmd *cli.Command) error {
 	argv := cmd.Args().Slice()
 	if len(argv) == 0 {
-		return errors.New("no game command; set the ETS2 launch options in Steam to: tlmp-manager launch %command%")
+		return errors.New("no game command; run tlmp-manager setup to see the ETS2 launch options")
 	}
 	if argv[0] == "-h" || argv[0] == "--help" {
 		return cli.ShowSubcommandHelp(cmd)

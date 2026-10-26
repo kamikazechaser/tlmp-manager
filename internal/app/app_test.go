@@ -159,7 +159,7 @@ func newFixture(t *testing.T) *fixture {
 		fmt.Sprintf(`"libraryfolders" { "0" { "path" "%s" } "1" { "path" "%s" } }`, f.root, lib))
 	write(t, filepath.Join(f.root, "config", "config.vdf"),
 		`"InstallConfigStore" { "Software" { "Valve" { "Steam" { "CompatToolMapping" { "227300" { "name" "proton_experimental" } } } } } }`)
-	f.setLaunchOption(t, "")
+	f.setLaunchOption(t, "1", "")
 
 	old := slog.Default()
 	slog.SetDefault(slog.New(slog.NewTextHandler(f.logs, nil)))
@@ -182,9 +182,9 @@ func newFixture(t *testing.T) *fixture {
 	return f
 }
 
-func (f *fixture) setLaunchOption(t *testing.T, opt string) {
+func (f *fixture) setLaunchOption(t *testing.T, account, opt string) {
 	t.Helper()
-	write(t, filepath.Join(f.root, "userdata", "1", "config", "localconfig.vdf"),
+	write(t, filepath.Join(f.root, "userdata", account, "config", "localconfig.vdf"),
 		fmt.Sprintf(`"UserLocalConfigStore" { "Software" { "Valve" { "Steam" { "apps" { "227300" { "LaunchOptions" "%s" } } } } } }`, opt))
 }
 
@@ -368,13 +368,13 @@ func TestSetupStatusUninstall(t *testing.T) {
 	if err := f.app.Setup(ctx); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`msg="Logged in" user=driver`, `msg="TrucklineMP updated" files=2`, `value="` + testExe + ` launch %command%"`, "Setup incomplete"} {
+	for _, want := range []string{`msg="Logged in" user=driver`, `msg="TrucklineMP updated" files=2`, `value="` + testExe + ` %command%"`, "Setup incomplete"} {
 		if !strings.Contains(f.logs.String(), want) {
 			t.Errorf("first setup output lacks %q:\n%s", want, f.logs)
 		}
 	}
 
-	f.setLaunchOption(t, testExe+" launch %command%")
+	f.setLaunchOption(t, "1", testExe+" %command%")
 	f.logs.Reset()
 	if err := f.app.Setup(ctx); err != nil {
 		t.Fatal(err)
@@ -413,10 +413,49 @@ func TestSetupStatusUninstall(t *testing.T) {
 	}
 }
 
+func TestStatusLaunchOptions(t *testing.T) {
+	const ok = `msg="Steam launch options OK"`
+	tests := []struct {
+		name string
+		// opts maps a Steam account to its ETS2 launch options.
+		opts   map[string]string
+		want   string
+		wantOK bool
+	}{
+		{name: "full path", opts: map[string]string{"1": testExe + " %command%"}, want: ok + " account=1", wantOK: true},
+		{name: "earlier launch form", opts: map[string]string{"1": testExe + " launch %command%"}, want: ok + " account=1", wantOK: true},
+		{name: "with a variable", opts: map[string]string{"1": "PROTON_LOG=1 " + testExe + " %command%"}, want: ok + " account=1", wantOK: true},
+		{name: "second account", opts: map[string]string{"1": "", "2": testExe + " %command%"}, want: ok + " account=2", wantOK: true},
+		{name: "name without path", opts: map[string]string{"1": "tlmp-manager %command%"}, want: `msg="Wrong Steam launch options" account=1 value="tlmp-manager %command%"`},
+		{name: "no game command", opts: map[string]string{"1": testExe}, want: `msg="Wrong Steam launch options" account=1 value=/opt/tlmp-manager`},
+		{name: "not set", opts: map[string]string{"1": ""}, want: `value="` + testExe + ` %command%"`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			for account, opt := range tt.opts {
+				f.setLaunchOption(t, account, opt)
+			}
+
+			if err := f.app.Status(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+
+			out := f.logs.String()
+			if !strings.Contains(out, tt.want) {
+				t.Errorf("output lacks %q:\n%s", tt.want, out)
+			}
+			if asked := strings.Contains(out, "Set the ETS2 launch options"); asked == tt.wantOK {
+				t.Errorf("output asks to set the launch options: %v, want %v:\n%s", asked, !tt.wantOK, out)
+			}
+		})
+	}
+}
+
 func TestDisable(t *testing.T) {
 	f := newFixture(t)
 	f.login(t)
-	f.setLaunchOption(t, testExe+" launch %command%")
+	f.setLaunchOption(t, "1", testExe+" %command%")
 	ctx := context.Background()
 	if _, err := f.app.Launch(ctx, f.argv); err != nil {
 		t.Fatal(err)

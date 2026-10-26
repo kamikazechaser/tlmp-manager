@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -127,41 +129,56 @@ func (a *App) checkProton(root string) bool {
 	}
 }
 
+// checkLaunchOptions requires the full path, because Steam may not have tlmp-manager on PATH.
 func (a *App) checkLaunchOptions(root string, explain bool) bool {
-	if a.launchOptionsSet(root) > 0 {
-		slog.Info("Steam launch options set")
+	opts, err := readLaunchOptions(root)
+	if err != nil {
+		slog.Warn("Could not read the Steam launch options", "err", err)
+	}
+	ok := false
+	for _, id := range slices.Sorted(maps.Keys(opts)) {
+		switch o := opts[id]; {
+		case a.startsTLMP(o):
+			slog.Info("Steam launch options OK", "account", id)
+			ok = true
+		case o != "":
+			slog.Warn("Wrong Steam launch options", "account", id, "value", o)
+		}
+	}
+	if ok {
 		return true
 	}
-	if !explain {
-		slog.Warn("Steam launch options not set. Run tlmp-manager setup")
-		return false
-	}
 
-	if tmp := filepath.Clean(os.TempDir()); strings.HasPrefix(a.exe, tmp+"/") || strings.Contains(a.exe, "/Downloads/") {
+	if tmp := filepath.Clean(os.TempDir()); explain && (strings.HasPrefix(a.exe, tmp+"/") || strings.Contains(a.exe, "/Downloads/")) {
 		slog.Warn("Move tlmp-manager to a permanent directory, for example ~/.local/bin, and run it again", "path", a.exe)
 	}
 	slog.Warn("Set the ETS2 launch options in Steam: ETS2 > Properties > General > Launch Options", "value", a.launchOptions())
-	if copyToClipboard(a.launchOptions()) {
+	if explain && copyToClipboard(a.launchOptions()) {
 		slog.Info("Launch options copied to the clipboard")
 	}
 	return false
 }
 
 func (a *App) launchOptionsSet(root string) int {
-	if root == "" {
-		return 0
-	}
-	opts, err := steam.LaunchOptions(root)
-	if err != nil {
-		return 0
-	}
+	opts, _ := readLaunchOptions(root)
 	set := 0
 	for _, o := range opts {
-		if strings.Contains(o, a.exe) && strings.Contains(o, "%command%") {
+		if a.startsTLMP(o) {
 			set++
 		}
 	}
 	return set
+}
+
+func readLaunchOptions(root string) (map[string]string, error) {
+	if root == "" {
+		return nil, errors.New("the Steam directory is unknown")
+	}
+	return steam.LaunchOptions(root)
+}
+
+func (a *App) startsTLMP(opts string) bool {
+	return strings.Contains(opts, a.exe) && strings.Contains(opts, "%command%")
 }
 
 func (a *App) launchOptions() string {
@@ -169,7 +186,7 @@ func (a *App) launchOptions() string {
 	if strings.ContainsAny(exe, " \t'\"") {
 		exe = strconv.Quote(exe)
 	}
-	return exe + " launch %command%"
+	return exe + " %command%"
 }
 
 func copyToClipboard(s string) bool {
