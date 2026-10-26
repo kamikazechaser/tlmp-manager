@@ -40,6 +40,8 @@ type (
 var (
 	// vanilla stands in for the Microsoft dll, which a test cannot use.
 	vanilla = []byte("MZ test DirectStorage DStorageGetFactory DStorageSetConfiguration1")
+	// olderShim stands in for a shim from another tlmp-manager version. Its bytes differ, and it forwards to dstorage_og.
+	olderShim = []byte("MZ older shim dstorage_og.DStorageGetFactory dstorage_og.DStorageSetConfiguration1")
 )
 
 func newFakeCDN() *fakeCDN {
@@ -267,6 +269,33 @@ func TestRunKeepsEarlierDstorage(t *testing.T) {
 	}
 }
 
+// TestRunUpgradesOlderShim keeps the backup when a new tlmp-manager version installs another shim.
+func TestRunUpgradesOlderShim(t *testing.T) {
+	cdn := newFakeCDN()
+	cdn.set(coreDLL, "core v1")
+	f := newFixture(t, cdn)
+	ctx := context.Background()
+	if _, err := f.inst.Run(ctx, f.paths, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(f.gameDir, dstorageFile), olderShim, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if f.inst.Installed(f.paths) {
+		t.Error("Installed() accepts an older shim")
+	}
+
+	if _, err := f.inst.Run(ctx, f.paths, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.read(t, filepath.Join(f.gameDir, dstorageFile)); got != string(shim.DLL) {
+		t.Error("dstorage.dll is not the current shim")
+	}
+	if got := f.read(t, filepath.Join(f.gameDir, dstorageOGFile)); got != string(vanilla) {
+		t.Errorf("dstorage_og.dll = %q, want the vanilla file", got)
+	}
+}
+
 func TestDisable(t *testing.T) {
 	tests := []struct {
 		name string
@@ -291,6 +320,15 @@ func TestDisable(t *testing.T) {
 				}
 			},
 			want: "MZ v2",
+		},
+		{
+			name: "shim of another tlmp-manager version",
+			before: func(t *testing.T, f fixture) {
+				if err := os.WriteFile(filepath.Join(f.gameDir, dstorageFile), olderShim, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			want: string(vanilla),
 		},
 		{
 			name: "install stopped before the shim was written",

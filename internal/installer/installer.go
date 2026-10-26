@@ -1,6 +1,7 @@
 package installer
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
@@ -63,6 +64,8 @@ const (
 	// coreDLL must match CORE_DLL in shim/dstorage.c.
 	coreDLL    = "TrucklineMP/trucklineets.dll"
 	managedDir = "TrucklineMP"
+	// shimForward is in the export forwarders of every shim version. See shim/dstorage.def.
+	shimForward = "dstorage_og."
 )
 
 var (
@@ -153,7 +156,7 @@ func (i *Installer) Disable(p steam.Paths) error {
 	var errs []error
 	// An install that stopped before it wrote the shim leaves the backup as the only copy.
 	_, statErr := os.Stat(dstorPath)
-	if shimInstalled(p.GameDir) || errors.Is(statErr, os.ErrNotExist) {
+	if isShim(dstorPath) || errors.Is(statErr, os.ErrNotExist) {
 		err := os.Rename(ogPath, dstorPath)
 		if errors.Is(err, os.ErrNotExist) {
 			err = os.Remove(dstorPath)
@@ -296,11 +299,20 @@ func shimInstalled(gameDir string) bool {
 	return got == shim.MD5
 }
 
+// isShim matches a shim of any tlmp-manager version, because the shim bytes change between builds.
+func isShim(path string) bool {
+	b, err := os.ReadFile(path)
+	return err == nil && bytes.Contains(b, []byte(shimForward))
+}
+
 // installShim keeps the current dstorage.dll, whatever it is, as dstorage_og.dll, because the shim forwards to it.
+// It overwrites a shim of another version, which is not a backup.
 func installShim(gameDir string) error {
 	dstorPath := filepath.Join(gameDir, dstorageFile)
-	if err := os.Rename(dstorPath, filepath.Join(gameDir, dstorageOGFile)); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
+	if !isShim(dstorPath) {
+		if err := os.Rename(dstorPath, filepath.Join(gameDir, dstorageOGFile)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
 	}
 	if err := os.Remove(filepath.Join(gameDir, dstorageLegacyFile)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		slog.Warn("Could not remove the old TLMP dll", "file", dstorageLegacyFile, "err", err)
